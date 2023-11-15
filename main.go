@@ -3,7 +3,7 @@ package main
 import "fmt"
 
 func main() {
-	alertHandler := AlertHandler{}
+	// alertHandler := AlertHandler{}
 	fmt.Println("Hello world")
 }
 
