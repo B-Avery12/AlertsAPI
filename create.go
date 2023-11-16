@@ -23,15 +23,22 @@ func (ah *AlertHandler) createAlert(resp http.ResponseWriter, req *http.Request)
 	responseBody := NonGetSuccessResponse{
 		AlertID: alert.ID,
 	}
-	rawResponeBody, err := json.Marshal(responseBody)
-	if err != nil {
-		// Because we have an internal error we don't want to store the alert. This is to prevent
-		// ...the user from trying to add the alert again and it already existing
-		resp.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	rawResponeBody, _ := json.Marshal(responseBody)
 
 	if alerts, ok := ah.AlertsByService[createReq.ID]; ok {
+		// Assume alerts are unique and not updateable. If we get a request for one that already exists
+		// ...return an errors letting user know the alert was not created
+		for _, existingAlert := range alerts.Alerts {
+			if existingAlert.ID == alert.ID {
+				responseBody.AlertID = ""
+				responseBody.Error = "alert not created because an alert with the same ID already exists"
+				rawResponeBody, _ = json.Marshal(responseBody)
+				resp.Write(rawResponeBody)
+				resp.Header().Set(ContentTypeHeader, ApplicationJson)
+				resp.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		}
 		alerts.Alerts = append(alerts.Alerts, alert)
 	} else {
 		ah.AlertsByService[createReq.ID] = AlertsWithService{

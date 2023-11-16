@@ -33,11 +33,7 @@ func (ah *AlertHandler) handleRequests(resp http.ResponseWriter, req *http.Reque
 			AlertID: "",
 			Error:   "requested method is not supported",
 		}
-		rawRespBody, err := json.Marshal(respBody)
-		if err != nil {
-			resp.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		rawRespBody, _ := json.Marshal(respBody)
 		resp.WriteHeader(http.StatusMethodNotAllowed)
 		resp.Write(rawRespBody)
 		resp.Header().Set(ContentTypeHeader, ApplicationJson)

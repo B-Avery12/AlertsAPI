@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -33,8 +34,17 @@ func (ah *AlertHandler) getAlerts(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	alerts := filterAlerts(params, ah.AlertsByService)
-	resp.WriteHeader(http.StatusAccepted)
+	filteredAlerts := filterAlerts(params, ah.AlertsByService)
+
+	rawResponseBody, err := json.Marshal(filteredAlerts)
+	if err != nil {
+		resp.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	resp.WriteHeader(http.StatusOK)
+	resp.Write(rawResponseBody)
+	resp.Header().Set(ContentTypeHeader, ApplicationJson)
 }
 
 func extractQueryParams(req *http.Request) (GetAlertsParams, error) {
@@ -58,12 +68,28 @@ func extractQueryParams(req *http.Request) (GetAlertsParams, error) {
 	}
 	alertParams.EndTS = time.Unix(int64(endtUnixTime), 0)
 
+	if alertParams.EndTS.Before(alertParams.StartTS) {
+		return GetAlertsParams{}, errors.New("invalid query params, end timestamp must be after start timestamp")
+	}
+
 	return alertParams, nil
 }
 
-func filterAlerts(params GetAlertsParams, alertsByService map[string]AlertsWithService) []Alert {
-	if alerts, ok := alertsByService[params.ServiceID]; ok {
-		// This is not correct
-		return alerts.Alerts
+func filterAlerts(params GetAlertsParams, alertsByService map[string]AlertsWithService) AlertsWithService {
+	filteredAlerts := make([]Alert, 0)
+	alertsWithService := AlertsWithService{
+		ServiceID: params.ServiceID,
 	}
+
+	if alerts, ok := alertsByService[params.ServiceID]; ok {
+		for _, alert := range alerts.Alerts {
+			if (alert.TS.After(params.StartTS) || alert.TS.Equal(params.StartTS)) &&
+				(alert.TS.Before(params.EndTS) || alert.TS.Equal(params.EndTS)) {
+				filteredAlerts = append(filteredAlerts, alert)
+			}
+		}
+		alertsWithService.ServiceName = alerts.ServiceName
+		alertsWithService.Alerts = filteredAlerts
+	}
+	return alertsWithService
 }
