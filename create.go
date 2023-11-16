@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 func (ah *AlertHandler) createAlert(req *http.Request) error {
@@ -14,8 +16,13 @@ func (ah *AlertHandler) createAlert(req *http.Request) error {
 		return err
 	}
 
+	alert, err := convertCreateRequestToAlert(createReq)
+	if err != nil {
+		return err
+	}
+
 	serviceKey := ServiceKey{ServiceID: createReq.ServiceID, ServiceName: createReq.ServiceName}
-	ah.AlertsByService[serviceKey] = append(ah.AlertsByService[serviceKey], createReq.Alert)
+	ah.AlertsByService[serviceKey] = append(ah.AlertsByService[serviceKey], alert)
 	return nil
 }
 
@@ -34,4 +41,22 @@ func parseCreateRequest(req *http.Request) (CreateAlertRequest, error) {
 		err = errors.New("unable to unmarshal request")
 	}
 	return createReq, err
+}
+
+func convertCreateRequestToAlert(createReq CreateAlertRequest) (Alert, error) {
+	alert := Alert{
+		ID:        createReq.ID,
+		Model:     createReq.Model,
+		Type:      createReq.Type,
+		Severity:  createReq.Severity,
+		TeamSlack: createReq.TeamSlack,
+	}
+
+	unixTime, err := strconv.Atoi(createReq.TS)
+	if err != nil {
+		return Alert{}, err
+	}
+
+	alert.TS = time.Unix(int64(unixTime), 0)
+	return alert, nil
 }
