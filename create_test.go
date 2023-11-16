@@ -115,7 +115,7 @@ func TestConvertCreateRequest_ValidTS(t *testing.T) {
 	assert.Equal(createRequest.TeamSlack, alert.TeamSlack)
 }
 
-func TestConvertCreateRequest_InalidTS(t *testing.T) {
+func TestConvertCreateRequest_InvalidTS(t *testing.T) {
 	assert := assert.New(t)
 	createRequest := CreateAlertRequest{
 		ServiceID:   "my_test_service_id",

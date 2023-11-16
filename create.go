@@ -10,20 +10,42 @@ import (
 	"time"
 )
 
-func (ah *AlertHandler) createAlert(req *http.Request) error {
+func (ah *AlertHandler) createAlert(resp http.ResponseWriter, req *http.Request) {
 	createReq, err := parseCreateRequest(req)
 	if err != nil {
-		return err
+		resp.WriteHeader(http.StatusBadRequest)
 	}
 
 	alert, err := convertCreateRequestToAlert(createReq)
 	if err != nil {
-		return err
+		resp.WriteHeader(http.StatusBadRequest)
+	}
+	responseBody := NonGetSuccessResponse{
+		AlertID: alert.ID,
+	}
+	rawResponeBody, err := json.Marshal(responseBody)
+	if err != nil {
+		// Because we have an internal error we don't want to store the alert. This is to prevent
+		// ...the user from trying to add the alert again and it already existing
+		resp.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
-	serviceKey := ServiceKey{ServiceID: createReq.ServiceID, ServiceName: createReq.ServiceName}
-	ah.AlertsByService[serviceKey] = append(ah.AlertsByService[serviceKey], alert)
-	return nil
+	if alerts, ok := ah.AlertsByService[createReq.ID]; ok {
+		alerts.Alerts = append(alerts.Alerts, alert)
+	} else {
+		ah.AlertsByService[createReq.ID] = AlertsWithService{
+			ServiceID:   createReq.ServiceID,
+			ServiceName: createReq.ServiceName,
+			Alerts: []Alert{
+				alert,
+			},
+		}
+	}
+
+	resp.WriteHeader(http.StatusOK)
+	resp.Write(rawResponeBody)
+	resp.Header().Set(ContentTypeHeader, ApplicationJson)
 }
 
 func parseCreateRequest(req *http.Request) (CreateAlertRequest, error) {

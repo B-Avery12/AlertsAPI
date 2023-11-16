@@ -2,11 +2,6 @@ package main
 
 import "time"
 
-type ServiceKey struct {
-	ServiceID   string
-	ServiceName string
-}
-
 type CreateAlertRequest struct {
 	ID          string `json:"alert_id"`
 	Model       string `json:"model"`
@@ -27,6 +22,19 @@ type Alert struct {
 	TeamSlack string    `json:"team_slack"`
 }
 
-type ReadAlertsResponse struct {
-	Alerts []Alert `json:"alerts"`
+type AlertsWithService struct {
+	ServiceID   string  `json:"service_id"`
+	ServiceName string  `json:"service_name"`
+	Alerts      []Alert `json:"alerts"`
+}
+
+type NonGetSuccessResponse struct {
+	AlertID string `json:"alert_id"`
+	Error   string `json:"error"`
+}
+
+type GetAlertsParams struct {
+	ServiceID string
+	StartTS   time.Time
+	EndTS     time.Time
 }
