@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -11,48 +10,60 @@ import (
 )
 
 func (ah *AlertHandler) createAlert(resp http.ResponseWriter, req *http.Request) {
+	resp.Header().Set(ContentTypeHeader, ApplicationJson)
 	createReq, err := parseCreateRequest(req)
 	if err != nil {
+		respBody := NonGetSuccessResponse{
+			Error: err.Error(),
+		}
+		rawRespBody, _ := json.Marshal(respBody)
 		resp.WriteHeader(http.StatusBadRequest)
+		resp.Write(rawRespBody)
+		return
 	}
 
-	alert, err := convertCreateRequestToAlert(createReq)
+	incomingAlert, err := convertCreateRequestToAlert(createReq)
 	if err != nil {
 		resp.WriteHeader(http.StatusBadRequest)
+		respBody := NonGetSuccessResponse{
+			Error: err.Error(),
+		}
+		rawRespBody, _ := json.Marshal(respBody)
+		resp.WriteHeader(http.StatusBadRequest)
+		resp.Write(rawRespBody)
+		return
 	}
 	responseBody := NonGetSuccessResponse{
-		AlertID: alert.ID,
+		AlertID: incomingAlert.ID,
 	}
 	rawResponeBody, _ := json.Marshal(responseBody)
-
-	if alerts, ok := ah.AlertsByService[createReq.ID]; ok {
+	if alertsWithService, ok := ah.AlertsByService[createReq.ServiceID]; ok {
 		// Assume alerts are unique and not updateable. If we get a request for one that already exists
 		// ...return an errors letting user know the alert was not created
-		for _, existingAlert := range alerts.Alerts {
-			if existingAlert.ID == alert.ID {
+		for _, existingAlert := range alertsWithService.Alerts {
+			if existingAlert.ID == incomingAlert.ID {
 				responseBody.AlertID = ""
 				responseBody.Error = "alert not created because an alert with the same ID already exists"
 				rawResponeBody, _ = json.Marshal(responseBody)
-				resp.Write(rawResponeBody)
-				resp.Header().Set(ContentTypeHeader, ApplicationJson)
 				resp.WriteHeader(http.StatusBadRequest)
+				resp.Write(rawResponeBody)
 				return
 			}
 		}
-		alerts.Alerts = append(alerts.Alerts, alert)
+		alertsWithService.Alerts = append(alertsWithService.Alerts, incomingAlert)
+		ah.AlertsByService[createReq.ServiceID] = alertsWithService
 	} else {
-		ah.AlertsByService[createReq.ID] = AlertsWithService{
+		ah.AlertsByService[createReq.ServiceID] = AlertsWithService{
 			ServiceID:   createReq.ServiceID,
 			ServiceName: createReq.ServiceName,
 			Alerts: []Alert{
-				alert,
+				incomingAlert,
 			},
 		}
 	}
 
 	resp.WriteHeader(http.StatusOK)
 	resp.Write(rawResponeBody)
-	resp.Header().Set(ContentTypeHeader, ApplicationJson)
 }
 
 func parseCreateRequest(req *http.Request) (CreateAlertRequest, error) {
@@ -62,7 +73,6 @@ func parseCreateRequest(req *http.Request) (CreateAlertRequest, error) {
 	if err != nil {
 		return CreateAlertRequest{}, err
 	}
-	fmt.Println(string(rawBody))
 
 	createReq := CreateAlertRequest{}
 	err = json.Unmarshal(rawBody, &createReq)
@@ -74,7 +84,7 @@ func parseCreateRequest(req *http.Request) (CreateAlertRequest, error) {
 
 func convertCreateRequestToAlert(createReq CreateAlertRequest) (Alert, error) {
 	alert := Alert{
-		ID:        createReq.ID,
+		ID:        createReq.AlertID,
 		Model:     createReq.Model,
 		Type:      createReq.Type,
 		Severity:  createReq.Severity,

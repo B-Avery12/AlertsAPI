@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -19,34 +18,7 @@ func TestParseCreateRequest_UnmarshalError(t *testing.T) {
 	assert.Equal("unable to unmarshal request", err.Error())
 	assert.Equal(createReq.ServiceName, "")
 	assert.Equal(createReq.ServiceID, "")
-	assert.Equal(createReq.ID, "")
-	assert.Equal(createReq.Model, "")
-	assert.Equal(createReq.Type, "")
-	assert.Equal(createReq.TS, "")
-	assert.Equal(createReq.Severity, "")
-	assert.Equal(createReq.TeamSlack, "")
-}
-
-func TestParseCreateRequest_InvalidTS(t *testing.T) {
-	assert := assert.New(t)
-	expectedRequest := CreateAlertRequest{
-		ServiceID:   "serviceID_1",
-		ServiceName: "serviceName_1",
-		ID:          "alert1",
-		Model:       "model1",
-		Type:        "type1",
-		// TS:        "this is wrong",
-		Severity:  "extreme",
-		TeamSlack: "test_slack",
-	}
-	rawExpectedReq, _ := json.Marshal(expectedRequest)
-	httpReq, _ := http.NewRequest("POST", "testingURL", bytes.NewBuffer(rawExpectedReq))
-	createReq, err := parseCreateRequest(httpReq)
-
-	assert.NotNil(err)
-	assert.Equal(createReq.ServiceName, "")
-	assert.Equal(createReq.ServiceID, "")
-	assert.Equal(createReq.ID, "")
+	assert.Equal(createReq.AlertID, "")
 	assert.Equal(createReq.Model, "")
 	assert.Equal(createReq.Type, "")
 	assert.Equal(createReq.TS, "")
@@ -59,7 +31,7 @@ func TestParseCreateRequest_ValidRequest(t *testing.T) {
 	expectedRequest := CreateAlertRequest{
 		ServiceID:   "my_test_service_id",
 		ServiceName: "my_test_service",
-		ID:          "b950482e9911ec7e41f7ca5e5d9a424f",
+		AlertID:     "b950482e9911ec7e41f7ca5e5d9a424f",
 		Model:       "my_test_model",
 		Type:        "anomaly",
 		TS:          "1695644160",
@@ -84,7 +56,7 @@ func TestParseCreateRequest_ValidRequest(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(expectedRequest.ServiceID, actualReq.ServiceID)
 	assert.Equal(expectedRequest.ServiceName, actualReq.ServiceName)
-	assert.Equal(expectedRequest.ID, actualReq.ID)
+	assert.Equal(expectedRequest.AlertID, actualReq.AlertID)
 	assert.Equal(expectedRequest.Model, actualReq.Model)
 	assert.Equal(expectedRequest.Type, actualReq.Type)
 	assert.Equal(expectedRequest.TS, actualReq.TS)
@@ -97,7 +69,7 @@ func TestConvertCreateRequest_ValidTS(t *testing.T) {
 	createRequest := CreateAlertRequest{
 		ServiceID:   "my_test_service_id",
 		ServiceName: "my_test_service",
-		ID:          "b950482e9911ec7e41f7ca5e5d9a424f",
+		AlertID:     "b950482e9911ec7e41f7ca5e5d9a424f",
 		Model:       "my_test_model",
 		Type:        "anomaly",
 		TS:          "1695644160",
@@ -107,7 +79,7 @@ func TestConvertCreateRequest_ValidTS(t *testing.T) {
 	alert, err := convertCreateRequestToAlert(createRequest)
 
 	assert.Nil(err)
-	assert.Equal(createRequest.ID, alert.ID)
+	assert.Equal(createRequest.AlertID, alert.ID)
 	assert.Equal(createRequest.Model, alert.Model)
 	assert.Equal(createRequest.Type, alert.Type)
 	assert.Equal(time.Time(time.Date(2023, time.September, 25, 6, 16, 0, 0, time.Local)), alert.TS)
@@ -120,7 +92,7 @@ func TestConvertCreateRequest_InvalidTS(t *testing.T) {
 	createRequest := CreateAlertRequest{
 		ServiceID:   "my_test_service_id",
 		ServiceName: "my_test_service",
-		ID:          "b950482e9911ec7e41f7ca5e5d9a424f",
+		AlertID:     "b950482e9911ec7e41f7ca5e5d9a424f",
 		Model:       "my_test_model",
 		Type:        "anomaly",
 		TS:          "this is invalid",

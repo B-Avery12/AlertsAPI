@@ -3,33 +3,27 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 )
 
 const (
-	// 	service_id: The identifier of the service for which alerts are requested.
-	// start_ts: The starting timestamp epoch of the time period.
-	// end_ts: The ending timestamp epoch of the time period.
 	ServiceIDParam = "service_id"
 	StartTSParam   = "start_ts"
 	EndTSParam     = "end_ts"
 )
 
 func (ah *AlertHandler) getAlerts(resp http.ResponseWriter, req *http.Request) {
+	resp.Header().Set(ContentTypeHeader, ApplicationJson)
 	params, err := extractQueryParams(req)
 	if err != nil {
 		respBody := NonGetSuccessResponse{
-			Error: "invalid query parameters",
+			Error: fmt.Sprintf("invalid query parameters: %v", err),
 		}
-		rawRespBody, err := json.Marshal(respBody)
-		if err != nil {
-			resp.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		rawRespBody, _ := json.Marshal(respBody)
 		resp.WriteHeader(http.StatusBadRequest)
-		resp.Header().Set(ContentTypeHeader, ApplicationJson)
 		resp.Write(rawRespBody)
 		return
 	}
@@ -38,13 +32,17 @@ func (ah *AlertHandler) getAlerts(resp http.ResponseWriter, req *http.Request) {
 
 	rawResponseBody, err := json.Marshal(filteredAlerts)
 	if err != nil {
+		errRespBody := NonGetSuccessResponse{
+			Error: "internal error",
+		}
+		errRawRespBody, _ := json.Marshal(errRespBody)
+		resp.Write(errRawRespBody)
 		resp.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	resp.WriteHeader(http.StatusOK)
 	resp.Write(rawResponseBody)
-	resp.Header().Set(ContentTypeHeader, ApplicationJson)
 }
 
 func extractQueryParams(req *http.Request) (GetAlertsParams, error) {
@@ -69,7 +67,7 @@ func extractQueryParams(req *http.Request) (GetAlertsParams, error) {
 	alertParams.EndTS = time.Unix(int64(endtUnixTime), 0)
 
 	if alertParams.EndTS.Before(alertParams.StartTS) {
-		return GetAlertsParams{}, errors.New("invalid query params, end timestamp must be after start timestamp")
+		return GetAlertsParams{}, errors.New("end timestamp must be after start timestamp")
 	}
 
 	return alertParams, nil
